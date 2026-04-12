@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Buddy – Focus Session Analyzer</title>
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0e0e11;
+      --surface:   #18181d;
+      --surface2:  #22222a;
+      --border:    #2e2e38;
+      --text:      #f1f0f5;
+      --muted:     #8a8a9a;
+      --accent:    #7c6ff7;
+      --accent-dk: #5c52e0;
+      --green:     #34d399;
+      --amber:     #fbbf24;
+      --red:       #f87171;
+      --radius:    14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ===== Header ===== */
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header .logo {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+    header .logo span { color: var(--accent); }
+    header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.3rem;
+    }
+
+    /* ===== Card ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 2.2rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    /* ===== Timer Display ===== */
+    .timer-wrap {
+      text-align: center;
+      margin-bottom: 1.8rem;
+    }
+    .timer {
+      font-size: 4.5rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      transition: color 0.4s;
+    }
+    .timer.distracted { color: var(--red); }
+    .timer-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 0.3rem;
+    }
+
+    /* ===== Status Badge ===== */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      padding: 4px 12px;
+      border-radius: 99px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-top: 0.7rem;
+      transition: all 0.3s;
+    }
+    .status-badge.active  { background: #1a2e24; border-color: #2a5a40; color: var(--green); }
+    .status-badge.paused  { background: #2d1f1f; border-color: #5a2a2a; color: var(--red);  }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-badge.active .status-dot { animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    /* ===== Quick Stats Row ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.6rem;
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .stat-box .label {
+      font-size: 0.73rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    .stat-box .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-box.distractions .value { color: var(--red); }
+    .stat-box.focus .value        { color: var(--green); }
+
+    /* ===== Buttons ===== */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    .btn {
+      flex: 1;
+      padding: 0.78rem 1rem;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:not(:disabled):hover  { transform: translateY(-2px); }
+    .btn:not(:disabled):active { transform: scale(0.97); }
+
+    .btn-start {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-start:not(:disabled):hover { background: var(--accent-dk); }
+
+    .btn-stop {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--red);
+    }
+    .btn-stop:not(:disabled):hover { border-color: var(--red); background: #2d1f1f; }
+
+    .btn-reset {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0.55rem;
+      margin-bottom: 1.6rem;
+    }
+    .btn-reset:not(:disabled):hover { color: var(--text); border-color: #555; }
+
+    /* ===== Divider ===== */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.4rem 0;
+    }
+
+    /* ===== Results Section ===== */
+    #results {
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    #results.visible { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .results-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 1.2rem;
+    }
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .result-box .label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .result-box .value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    /* ===== Focus Score ===== */
+    .score-wrap {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .score-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.6rem;
+    }
+    .score-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .score-num   { font-size: 1.8rem; font-weight: 700; }
+
+    /* Score bar */
+    .bar-track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
+      width: 0;
+    }
+
+    /* ===== Feedback Message ===== */
+    .feedback {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    .feedback-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .feedback-text { font-size: 0.9rem; }
+    .feedback-text strong { display: block; font-size: 1rem; margin-bottom: 2px; }
+
+    /* ===== Distraction Toast ===== */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #2d1f1f;
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 0.6rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Study <span>Buddy</span></div>
+    <p>Focus Session Analyzer</p>
+  </header>
+
+  <!-- Main Card -->
+  <div class="card">
+
+    <!-- Timer -->
+    <div class="timer-wrap">
+      <div class="timer" id="timer">00:00</div>
+      <div class="timer-label">Session Time</div>
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready to start</span>
+      </div>
+    </div>
+
+    <!-- Live Stats -->
+    <div class="stats-row">
+      <div class="stat-box distractions">
+        <div class="label">Distractions</div>
+        <div class="value" id="liveDistractions">0</div>
+      </div>
+      <div class="stat-box focus">
+        <div class="label">Focus Time</div>
+        <div class="value" id="liveFocus">00:00</div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-start" id="btnStart" onclick="startSession()">▶ Start Session</button>
+      <button class="btn btn-stop"  id="btnStop"  onclick="stopSession()" disabled>■ Stop</button>
+    </div>
+    <button class="btn btn-reset" id="btnReset" onclick="resetSession()" disabled>↺ Reset</button>
+
+    <!-- Results (shown after stop) -->
+    <div id="results">
+      <hr class="divider" />
+      <div class="results-title">Session Analysis</div>
+
+      <div class="result-grid">
+        <div class="result-box">
+          <div class="label">Total Time</div>
+          <div class="value" id="rTotal">—</div>
+        </div>
+        <div class="result-box">
+          <div class="label">Active Focus</div>
+          <div class="value" id="rFocus">—</div>
+        </div>
+        <div class="result-box">
+          <div class="label">Distracted Time</div>
+          <div class="value" id="rDistracted" style="color: var(--red)">—</div>
+        </div>
+        <div class="result-box">
+          <div class="label">Distractions</div>
+          <div class="value" id="rDistractions" style="color: var(--red)">—</div>
+        </div>
+      </div>
+
+      <!-- Score -->
+      <div class="score-wrap">
+        <div class="score-header">
+          <span class="score-label">Focus Score</span>
+          <span class="score-num" id="rScore">—</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" id="scoreBar"></div>
+        </div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="feedback" id="feedback">
+        <div class="feedback-icon" id="feedIcon">🎯</div>
+        <div class="feedback-text">
+          <strong id="feedTitle">—</strong>
+          <span id="feedDesc">—</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Distraction Toast -->
+  <div id="toast">⚠ Distraction detected!</div>
+
+<script>
+  /* ======================================================
+     State
+  ====================================================== */
+  let sessionActive   = false;
+  let startTime       = null;   // session wall-clock start
+  let elapsedMs       = 0;      // total elapsed ms (counting while active)
+  let focusMs         = 0;      // ms spent with tab visible/active
+  let distractMs      = 0;      // ms spent distracted
+  let distractionCount = 0;
+
+  // Distraction tracking helpers
+  let distractStart   = null;   // when current distraction began
+  let isDistracted    = false;
+
+  let tickInterval    = null;   // setInterval handle
+
+  /* ======================================================
+     Utility: format ms → "MM:SS"
+  ====================================================== */
+  function fmt(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  /* ======================================================
+     Start Session
+  ====================================================== */
+  function startSession() {
+    sessionActive    = true;
+    startTime        = Date.now();
+    isDistracted     = false;
+    distractStart    = null;
+
+    // Reset live counters
+    elapsedMs = focusMs = distractMs = 0;
+    distractionCount = 0;
+
+    // Hide previous results
+    document.getElementById('results').classList.remove('visible');
+
+    // Update UI
+    setStatus('active', 'Focused');
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStop').disabled  = false;
+    document.getElementById('btnReset').disabled = false;
+    document.getElementById('timer').classList.remove('distracted');
+
+    // Page Visibility API — detect tab switches
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Tick every second
+    tickInterval = setInterval(tick, 1000);
+  }
+
+  /* ======================================================
+     Tick (runs every second while session is active)
+  ====================================================== */
+  function tick() {
+    const now = Date.now();
+    elapsedMs = now - startTime;
+
+    // If currently distracted, accumulate distraction time
+    if (isDistracted && distractStart !== null) {
+      distractMs = (now - distractStart);
+    }
+
+    // Focus time = total − distraction
+    focusMs = Math.max(0, elapsedMs - distractMs);
+
+    // Update displays
+    document.getElementById('timer').textContent = fmt(elapsedMs);
+    document.getElementById('liveDistractions').textContent = distractionCount;
+    document.getElementById('liveFocus').textContent = fmt(focusMs);
+  }
+
+  /* ======================================================
+     Page Visibility Change Handler
+  ====================================================== */
+  function onVisibilityChange() {
+    if (!sessionActive) return;
+
+    if (document.hidden) {
+      // Tab switched away → start a distraction
+      if (!isDistracted) {
+        isDistracted  = true;
+        distractStart = Date.now();
+        distractionCount++;
+        document.getElementById('timer').classList.add('distracted');
+        setStatus('paused', 'Tab switched — distracted!');
+        showToast();
+      }
+    } else {
+      // Tab back in focus → end distraction
+      if (isDistracted) {
+        distractMs   += Date.now() - distractStart;
+        distractStart = null;
+        isDistracted  = false;
+        document.getElementById('timer').classList.remove('distracted');
+        setStatus('active', 'Focused');
+      }
+    }
+  }
+
+  /* ======================================================
+     Stop Session
+  ====================================================== */
+  function stopSession() {
+    if (!sessionActive) return;
+    sessionActive = false;
+
+    // If ended while distracted, close out distraction window
+    if (isDistracted && distractStart !== null) {
+      distractMs   += Date.now() - distractStart;
+      distractStart = null;
+      isDistracted  = false;
+    }
+
+    clearInterval(tickInterval);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+
+    // Final values
+    elapsedMs = Date.now() - startTime;
+    focusMs   = Math.max(0, elapsedMs - distractMs);
+
+    // UI
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnStop').disabled  = true;
+    document.getElementById('timer').classList.remove('distracted');
+    setStatus('', 'Session complete');
+
+    showResults();
+  }
+
+  /* ======================================================
+     Show Results
+  ====================================================== */
+  function showResults() {
+    // Basic metrics
+    document.getElementById('rTotal').textContent       = fmt(elapsedMs);
+    document.getElementById('rFocus').textContent       = fmt(focusMs);
+    document.getElementById('rDistracted').textContent  = fmt(distractMs);
+    document.getElementById('rDistractions').textContent = distractionCount;
+
+    /* Focus score formula:
+         base score = focusRatio (0-1) * 100
+         penalty    = distractionCount * 4 (up to a cap)
+         score      = clamp(base - penalty, 0, 100)
+    */
+    const focusRatio = elapsedMs > 0 ? focusMs / elapsedMs : 1;
+    const penalty    = Math.min(distractionCount * 4, 30);
+    const score      = Math.round(Math.max(0, focusRatio * 100 - penalty));
+
+    document.getElementById('rScore').textContent = `${score}%`;
+
+    // Animate score bar
+    const bar = document.getElementById('scoreBar');
+    bar.style.background = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--amber)' : 'var(--red)';
+    setTimeout(() => { bar.style.width = `${score}%`; }, 50);
+
+    // Feedback
+    let icon, title, desc;
+    if (score >= 80) {
+      icon  = '🏆';
+      title = 'Highly Focused';
+      desc  = 'Outstanding session! You maintained excellent concentration throughout.';
+    } else if (score >= 50) {
+      icon  = '💡';
+      title = 'Moderately Focused';
+      desc  = 'Good effort! A few distractions crept in — keep pushing for deeper focus.';
+    } else {
+      icon  = '🎯';
+      title = 'Easily Distracted';
+      desc  = 'Lots of distractions this session. Try silencing notifications next time!';
+    }
+
+    document.getElementById('feedIcon').textContent  = icon;
+    document.getElementById('feedTitle').textContent = title;
+    document.getElementById('feedDesc').textContent  = desc;
+
+    // Show results panel
+    const r = document.getElementById('results');
+    r.classList.add('visible');
+    r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* ======================================================
+     Reset Session
+  ====================================================== */
+  function resetSession() {
+    clearInterval(tickInterval);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+
+    sessionActive = false;
+    startTime = elapsedMs = focusMs = distractMs = 0;
+    distractionCount = 0;
+    isDistracted = false;
+    distractStart = null;
+
+    document.getElementById('timer').textContent         = '00:00';
+    document.getElementById('liveDistractions').textContent = '0';
+    document.getElementById('liveFocus').textContent     = '00:00';
+    document.getElementById('timer').classList.remove('distracted');
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnStop').disabled  = true;
+    document.getElementById('btnReset').disabled = true;
+    document.getElementById('results').classList.remove('visible');
+    document.getElementById('scoreBar').style.width = '0';
+    setStatus('', 'Ready to start');
+  }
+
+  /* ======================================================
+     Helpers
+  ====================================================== */
+  function setStatus(type, text) {
+    const badge = document.getElementById('statusBadge');
+    badge.className = 'status-badge ' + type;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+
+</body>
+</html>
